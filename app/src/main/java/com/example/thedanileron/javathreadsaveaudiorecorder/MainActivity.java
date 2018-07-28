@@ -84,11 +84,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-
-    public void toastMakeText(String message) {
-        Toast.makeText(this, message,
-                Toast.LENGTH_LONG).show();
-    }
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
