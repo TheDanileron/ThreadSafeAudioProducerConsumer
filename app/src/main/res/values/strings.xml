@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">JavaThreadSaveAudioRecorder</string>
+    <string name="mainTitle">Producer-Consumer Sound Recorder</string>
+    <string name="recordBtnText">Record</string>
+    <string name="stopBtnText">Stop</string>
+    <string name="playBtnText">Play</string>
+</resources>
