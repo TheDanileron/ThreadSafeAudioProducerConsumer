@@ -23,8 +23,11 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.Locale;
+import java.util.PriorityQueue;
+import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -36,18 +39,18 @@ public class MainActivity extends AppCompatActivity {
     private String[] permissions = {Manifest.permission.RECORD_AUDIO};
 
     private Button btnRecord, btnPlay;
-    private static volatile BlockingQueue<String> files = new ArrayBlockingQueue<String>(1, true);
-    private MainActivity context;
 
+    private static volatile LinkedList<String> files = new LinkedList<>();
+    private static volatile Semaphore semaphore = new Semaphore(1, true);
     private AtomicInteger recorderCounter = new AtomicInteger(0);
     private AtomicInteger playerCounter = new AtomicInteger(0);
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         ActivityCompat.requestPermissions(this, permissions, REQUEST_RECORD_AUDIO_PERMISSION);
-        context = this;
+
         btnRecord = findViewById(R.id.btnRecord);
         btnPlay = findViewById(R.id.btnPlay);
 
@@ -58,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
                 Thread threadRecorder = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        Recorder recorder = new Recorder(recorderCounter.incrementAndGet() , files, context);
+                        Recorder recorder = new Recorder(semaphore, recorderCounter.incrementAndGet() , files);
                         recorder.startRecording();
                     }
                 });
@@ -72,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
                Thread threadPlayer = new Thread(new Runnable() {
                    @Override
                    public void run() {
-                        Player player = new Player(playerCounter.incrementAndGet(), files, context);
+                        Player player = new Player(semaphore, playerCounter.incrementAndGet(), files);
                         player.startPlaying();
                    }
                });

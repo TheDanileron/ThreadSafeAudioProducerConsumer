@@ -14,58 +14,65 @@ import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 
 public class Recorder {
-
     private static final String LOG_TAG = "RECORDING_APP";
 
     private MediaRecorder mRecorder;
-    private BlockingQueue<String> files;
-    private MainActivity mainActivity;
+    private Queue<String> files;
+    private Semaphore semaphore;
     private int id;
 
-    public Recorder(int id, BlockingQueue<String> files, MainActivity context) {
+    public Recorder(Semaphore semaphore, int id, Queue<String> files) {
+        this.semaphore = semaphore;
         this.id = id;
         this.files = files;
-        this.mainActivity = context;
     }
 
     protected void startRecording() {
+        try {
+            semaphore.acquire();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         File mOutputFile = getOutputFile();
         mOutputFile.getParentFile().mkdirs();
         final String fPath = mOutputFile.getAbsolutePath();
 
-        mRecorder = new MediaRecorder();
-        mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-        mRecorder.setOutputFile(mOutputFile.getAbsolutePath());
-        mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
         try {
+            mRecorder = new MediaRecorder();
+            mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
+            mRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
+            mRecorder.setOutputFile(mOutputFile.getAbsolutePath());
+            mRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
             mRecorder.prepare();
+            mRecorder.start();
+
+            Log.wtf(LOG_TAG, "Recorder " + id + " started recording...");
         } catch (IOException e) {
             Log.e(LOG_TAG, "Recorder prepare() failed");
+            semaphore.release();
         }
-        mRecorder.start();
-
-        Log.wtf(LOG_TAG, "Recorder " + id + " started recording...");
 
         new java.util.Timer().schedule(
                 new java.util.TimerTask() {
                     @Override
                     public void run() {
-                        stopRecording();
                         try {
-                            files.put(fPath);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+                            stopRecording();
+                            files.add(fPath);
+                        } finally {
+                            semaphore.release();
                         }
                     }
                 },
-                10000
-        );
+                10000);
     }
 
     private void stopRecording() {

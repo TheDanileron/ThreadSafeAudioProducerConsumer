@@ -7,39 +7,58 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.io.IOException;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Queue;
+import java.util.concurrent.Semaphore;
 
 public class Player {
 
     private static final String LOG_TAG = "RECORDING_APP";
 
     private MediaPlayer mPlayer;
-    private BlockingQueue<String> files;
-    private Context context;
+    private Queue<String> files;
     private int id;
+    private Semaphore semaphore;
 
-    public Player(int id, BlockingQueue<String> files, Context context) {
+    public Player(Semaphore semaphore, int id, Queue<String> files) {
+        this.semaphore = semaphore;
         this.id = id;
         this.files = files;
-        this.context = context;
     }
 
     public void startPlaying() {
-        Log.wtf(LOG_TAG, "Player " + id + " about to start. Files array : " + files.toString());
-        mPlayer = new MediaPlayer();
-        try {
+        while (true) {
             try {
-                mPlayer.setDataSource(files.take());
+                if (files.isEmpty()) {
+                    Thread.sleep(100);
+                } else {
+                    semaphore.acquire();
+                    break;
+                }
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            mPlayer.prepare();
-            mPlayer.start();
-            Log.wtf(LOG_TAG, "Player " + id + " started playing...");
+        }
 
+        Log.wtf(LOG_TAG, "Player " + id + " is about to start. Files array : " + files.toString());
+        try {
+            mPlayer = new MediaPlayer();
+            mPlayer.setDataSource(files.remove());
+            mPlayer.prepare();
+            mPlayer.setLooping(false);
+            mPlayer.start();
+
+            Log.wtf(LOG_TAG, "Player " + id + " started playing...");
+            while (mPlayer.getDuration() != mPlayer.getCurrentPosition()) {
+                Thread.sleep(100);
+            }
+            semaphore.release();
+            Log.wtf(LOG_TAG, "Player " + id + " finished playing...");
         } catch (IOException e) {
             Log.wtf(LOG_TAG, "Player prepare() failed");
+            semaphore.release();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            semaphore.release();
         }
     }
 
